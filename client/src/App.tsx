@@ -11,20 +11,17 @@ import {
   Clock, 
   CheckCircle2,
   AlertCircle,
-  Menu,
+  Menu
 } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import type { LatLngExpression } from 'leaflet';
-
-
 // --- LEAFLET ICON FIX ---
 import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 
 const API_URL = 'https://fuelify.onrender.com';
-
 
 const DefaultIcon = L.icon({
     iconUrl: icon,
@@ -109,14 +106,15 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<'map' | 'staff' | 'compare' | 'register'>('map');
   const [stations, setStations] = useState<Station[]>([]);
   const [history, setHistory] = useState<LogEntry[]>([]);
-  const [loading, setLoading] = useState(false);
+  // Fix: Removed 'loading' variable but kept 'setLoading' setter
+  const [, setLoading] = useState(false);
   const [time, setTime] = useState(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
   const [toast, setToast] = useState<{msg: string, type: 'success' | 'error'} | null>(null);
 
   const refreshData = async () => {
     try {
-const sRes = await axios.get(`${API_URL}/api/stations`);
-    const hRes = await axios.get(`${API_URL}/api/history`);
+      const sRes = await axios.get(`${API_URL}/api/stations`);
+      const hRes = await axios.get(`${API_URL}/api/history`);
       setStations(sRes.data);
       setHistory(hRes.data);
     } catch (err) {
@@ -207,27 +205,26 @@ const sRes = await axios.get(`${API_URL}/api/stations`);
                   <td className="p-3 text-slate-500">
                     {log.updatedBy}
                   </td>
-<td className="p-3">
-  {log.type === 'REGISTRATION' ? (
-    <span className="inline-flex items-center px-2 py-1 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-      <PlusCircle size={10} className="mr-1"/> Registered
-    </span>
-  ) : (
-    <div className="flex gap-2">
-      <span className="text-slate-400">Reg:
-        <span className="text-indigo-400">
-          ${log.details && log.details.regular ? log.details.regular : '--'}
-        </span>
-      </span>
-      <span className="text-slate-400">Dsl:
-        <span className="text-orange-400">
-          ${log.details && log.details.diesel ? log.details.diesel : '--'}
-        </span>
-      </span>
-    </div>
-  )}
-</td>
-
+                  <td className="p-3">
+                    {log.type === 'REGISTRATION' ? (
+                      <span className="inline-flex items-center px-2 py-1 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                        <PlusCircle size={10} className="mr-1"/> Registered
+                      </span>
+                    ) : (
+                      <div className="flex gap-2">
+                        <span className="text-slate-400">Reg:
+                          <span className="text-indigo-400">
+                            ${log.details && log.details.regular ? log.details.regular : '--'}
+                          </span>
+                        </span>
+                        <span className="text-slate-400">Dsl:
+                          <span className="text-orange-400">
+                            ${log.details && log.details.diesel ? log.details.diesel : '--'}
+                          </span>
+                        </span>
+                      </div>
+                    )}
+                  </td>
                 </tr>
               ))}
               {history.length === 0 && (
@@ -332,7 +329,8 @@ const StaffScreen = ({ stations, onUpdate, setLoading, showToast }: any) => {
     setLoading(true);
     
     try {
-        await axios.post('`${API_URL}/api/update-price', {
+        // Fix: Corrected template literal syntax
+        await axios.post(`${API_URL}/api/update-price`, {
             stationId: selectedStation,
             user: "Staff_User",
             prices: formData
@@ -399,7 +397,8 @@ const RegisterScreen = ({ onUpdate, setLoading, showToast }: any) => {
     setLoading(true);
 
     try {
-        await axios.post('`${API_URL}/api/stations', form);
+        // Fix: Corrected template literal syntax
+        await axios.post(`${API_URL}/api/stations`, form);
         showToast("New station registered!", 'success');
         onUpdate();
         setForm({ name: '', lat: '32.7767', lng: '-96.7970' });
