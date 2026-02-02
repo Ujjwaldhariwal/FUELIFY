@@ -25,6 +25,9 @@ import type { LatLngExpression } from 'leaflet';
 import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 
+const API_URL = 'https://fuelify.onrender.com';
+
+
 const DefaultIcon = L.icon({
     iconUrl: icon,
     shadowUrl: iconShadow,
@@ -114,8 +117,8 @@ export default function App() {
 
   const refreshData = async () => {
     try {
-      const sRes = await axios.get('http://localhost:5000/api/stations');
-      const hRes = await axios.get('http://localhost:5000/api/history');
+const sRes = await axios.get(`${API_URL}/api/stations`);
+    const hRes = await axios.get(`${API_URL}/api/history`);
       setStations(sRes.data);
       setHistory(hRes.data);
     } catch (err) {
@@ -331,7 +334,7 @@ const StaffScreen = ({ stations, onUpdate, setLoading, showToast }: any) => {
     setLoading(true);
     
     try {
-        await axios.post('http://localhost:5000/api/update-price', {
+        await axios.post('`${API_URL}/api/update-price', {
             stationId: selectedStation,
             user: "Staff_User",
             prices: formData
@@ -398,7 +401,7 @@ const RegisterScreen = ({ onUpdate, setLoading, showToast }: any) => {
     setLoading(true);
 
     try {
-        await axios.post('http://localhost:5000/api/stations', form);
+        await axios.post('`${API_URL}/api/stations', form);
         showToast("New station registered!", 'success');
         onUpdate();
         setForm({ name: '', lat: '32.7767', lng: '-96.7970' });
