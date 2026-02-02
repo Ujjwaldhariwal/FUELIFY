@@ -8,12 +8,10 @@ import {
   PlusCircle, 
   Save, 
   Navigation, 
-  DollarSign, 
   Clock, 
   CheckCircle2,
   AlertCircle,
   Menu,
-  BatteryCharging
 } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
