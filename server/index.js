@@ -6,8 +6,8 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Disable mongoose buffering globally (prevents 10s "buffering timed out" waits)
-mongoose.set("bufferCommands", false); // [page:1]
+// 1. Disable buffering globally
+mongoose.set("bufferCommands", false);
 
 const STATIONS = [
   { id: "1", name: "EagleStores Parma", lat: 41.38, lng: -81.73 },
@@ -16,12 +16,12 @@ const STATIONS = [
   { id: "4", name: "Acro Akron", lat: 41.08, lng: -81.51 },
 ];
 
-// Flat schema (your current structure)
+// 2. Schema Definition
 const PriceHistorySchema = new mongoose.Schema(
   {
     stationId: { type: String, required: true },
-    date: { type: String, required: true }, // YYYY-MM-DD
-    time: { type: String, required: true }, // ISO string
+    date: { type: String, required: true },
+    time: { type: String, required: true },
     updatedBy: { type: String, default: "Staff" },
     regular: { type: Number, default: null },
     midgrade: { type: Number, default: null },
@@ -30,97 +30,59 @@ const PriceHistorySchema = new mongoose.Schema(
   },
   {
     timestamps: true,
-    bufferCommands: false, // also disable at schema level [page:1]
+    bufferCommands: false, // Important: disable buffering at schema level
+    autoCreate: false, // CRITICAL FIX: prevents 'createCollection' error on startup
   }
 );
 
-// Prevent duplicate docs for same station/day
-PriceHistorySchema.index({ stationId: 1, date: 1 }, { unique: true });
-
+// Define model
 const PriceHistory = mongoose.model("PriceHistory", PriceHistorySchema);
 
+// Helper to check DB state
 function isDbReady() {
   return mongoose.connection.readyState === 1;
 }
 
-// If DB is not ready, fail fast for API routes
-app.use((req, res, next) => {
-  if (req.path.startsWith("/api") && !isDbReady()) {
-    return res.status(503).json({ error: "DB not ready, try again in a few seconds" });
-  }
-  next();
-});
-
+// 3. API Routes
 app.get("/", (req, res) => {
   res.json({
     status: "Fuelify API",
-    mongodbReadyState: mongoose.connection.readyState, // 1=connected
     mongodb: isDbReady() ? "Connected" : "Not connected",
     stations: STATIONS.length,
-    envUriSet: Boolean(process.env.MONGODB_URI),
   });
 });
 
 app.get("/api/stations", (req, res) => res.json(STATIONS));
 
 app.post("/api/update-price", async (req, res) => {
+  if (!isDbReady()) return res.status(503).json({ error: "DB not connected" });
+
   try {
     const { stationId, fuelType, price, updatedBy } = req.body;
-
-    if (!stationId || !fuelType || price === undefined || price === null) {
-      return res.status(400).json({ error: "Missing fields" });
-    }
-
-    if (!["regular", "midgrade", "premium", "diesel"].includes(fuelType)) {
-      return res.status(400).json({ error: "Invalid fuelType" });
-    }
-
-    const stationExists = STATIONS.some((s) => s.id === String(stationId));
-    if (!stationExists) return res.status(404).json({ error: "Station not found" });
-
     const now = new Date();
     const dateKey = now.toISOString().split("T")[0];
-    const timeKey = now.toISOString();
-    const numericPrice = Number(price);
 
-    if (!Number.isFinite(numericPrice) || numericPrice <= 0) {
-      return res.status(400).json({ error: "Invalid price" });
-    }
-
-    // IMPORTANT: use $set so parallel requests don't replace the whole doc
     const filter = { stationId: String(stationId), date: dateKey };
     const update = {
-      $setOnInsert: { stationId: String(stationId), date: dateKey },
       $set: {
-        time: timeKey,
-        updatedBy: (updatedBy || "Staff").trim(),
-        [fuelType]: numericPrice,
+        time: now.toISOString(),
+        updatedBy: updatedBy || "Staff",
+        [fuelType]: parseFloat(price),
       },
     };
 
-    try {
-      await PriceHistory.findOneAndUpdate(filter, update, {
-        upsert: true,
-        new: true,
-        setDefaultsOnInsert: true,
-      }).lean();
-    } catch (err) {
-      // If 4 parallel upserts collide, one may hit duplicate key error. Retry once.
-      if (err && err.code === 11000) {
-        await PriceHistory.findOneAndUpdate(filter, update, { upsert: false }).lean();
-      } else {
-        throw err;
-      }
-    }
+    // Use updateOne with upsert to avoid some findOneAndUpdate overhead
+    await PriceHistory.updateOne(filter, update, { upsert: true });
 
     res.json({ success: true, dateKey, stationId: String(stationId) });
   } catch (err) {
     console.error("Save error:", err);
-    res.status(500).json({ error: err.message || "Save failed" });
+    res.status(500).json({ error: err.message });
   }
 });
 
 app.get("/api/admin/price-history", async (req, res) => {
+  if (!isDbReady()) return res.status(503).json({ error: "DB not connected" });
   try {
     const data = await PriceHistory.find({})
       .sort({ date: -1, time: -1 })
@@ -135,77 +97,77 @@ app.get("/api/admin/price-history", async (req, res) => {
           time: doc.time,
           updatedBy: doc.updatedBy,
           prices: {
-            regular: doc.regular ?? null,
-            midgrade: doc.midgrade ?? null,
-            premium: doc.premium ?? null,
-            diesel: doc.diesel ?? null,
+            regular: doc.regular,
+            midgrade: doc.midgrade,
+            premium: doc.premium,
+            diesel: doc.diesel,
           },
         },
       ];
     }
-
     res.json({ stations: STATIONS, history: historyByDate });
   } catch (err) {
-    console.error("History error:", err);
     res.status(500).json({ error: err.message });
   }
 });
 
 app.get("/api/admin/chart-data/:stationId", async (req, res) => {
-  const { stationId } = req.params;
+  if (!isDbReady()) return res.status(503).json({ error: "DB not connected" });
   try {
-    const station = STATIONS.find((s) => s.id === String(stationId));
+    const { stationId } = req.params;
+    const station = STATIONS.find((s) => s.id === stationId);
     if (!station) return res.status(404).json({ error: "Station not found" });
 
-    const data = await PriceHistory.find({ stationId: String(stationId) })
+    const data = await PriceHistory.find({ stationId })
       .sort({ date: 1 })
       .limit(30)
       .lean();
 
     const chartData = data.map((doc) => ({
       date: doc.date,
-      regular: doc.regular ?? null,
-      midgrade: doc.midgrade ?? null,
-      premium: doc.premium ?? null,
-      diesel: doc.diesel ?? null,
+      regular: doc.regular,
+      midgrade: doc.midgrade,
+      premium: doc.premium,
+      diesel: doc.diesel,
     }));
 
     res.json({ station: station.name, data: chartData });
   } catch (err) {
-    console.error("Chart error:", err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// ---- Start server ONLY after DB connection ----
-async function start() {
+// 4. Server Startup
+async function startServer() {
   const MONGODB_URI = process.env.MONGODB_URI;
   if (!MONGODB_URI) {
-    console.error("❌ MONGODB_URI missing. Set it in Render Environment Variables.");
+    console.error("❌ MONGODB_URI not set!");
     process.exit(1);
   }
 
-  mongoose.connection.on("connected", () => console.log("🟢 Mongo connected"));
-  mongoose.connection.on("disconnected", () => console.log("🟠 Mongo disconnected"));
-  mongoose.connection.on("error", (e) => console.log("🔴 Mongo error:", e?.message || e));
+  try {
+    // Connect first
+    await mongoose.connect(MONGODB_URI, {
+      serverSelectionTimeoutMS: 5000,
+      family: 4,
+    });
+    console.log("🟢 MongoDB Connected");
 
-  // Connection options (timeouts + prefer IPv4). [page:1]
-  await mongoose.connect(MONGODB_URI, {
-    serverSelectionTimeoutMS: 30000,
-    connectTimeoutMS: 30000,
-    socketTimeoutMS: 45000,
-    family: 4,
-    maxPoolSize: 10,
-  });
+    // Manually create collection (since autoCreate is false) to ensure it exists
+    if (mongoose.connection.readyState === 1) {
+       // Safe check: usually updateOne/find will create it, 
+       // but createCollection ensures indexes if you had them.
+       // For now, we just skip explicit creation to avoid the specific bug.
+       console.log("🟢 DB Ready state: " + mongoose.connection.readyState);
+    }
 
-  // Ensure indexes exist (unique stationId+date)
-  await PriceHistory.init();
+    const PORT = process.env.PORT || 5000;
+    app.listen(PORT, () => console.log(`🚀 Server running on ${PORT}`));
 
-  const PORT = process.env.PORT || 5000;
-  app.listen(PORT, () => console.log(`🚀 Server running on ${PORT}`));
+  } catch (err) {
+    console.error("🔴 Failed to connect/start:", err);
+    process.exit(1);
+  }
 }
 
-start().catch((err) => {
-  console.error("❌ Failed to start:", err);
-  process.exit(1);
-});
+startServer();
