@@ -9,98 +9,174 @@ app.use(express.json());
 
 const DB_FILE = path.join(__dirname, 'database.json');
 
-// --- DATABASE UTILS ---
+// --- CLEAN DATABASE UTILS ---
+let cachedDB = null;
+
 function getDatabase() {
+  if (cachedDB) return cachedDB;
+
   if (!fs.existsSync(DB_FILE)) {
-    // Default Data
+    // CLEAN INITIAL DATA - ONLY NEW STRUCTURE
     const initialData = {
       stations: [
-        { id: 1, name: "Shell - Downtown", lat: 32.7767, lng: -96.7970, prices: { regular: 2.50, midgrade: 2.80, premium: 3.10, diesel: 3.00 } },
-        { id: 2, name: "Chevron - North Hwy", lat: 32.7900, lng: -96.8100, prices: { regular: 2.65, midgrade: 2.95, premium: 3.25, diesel: 3.15 } },
-        { id: 3, name: "Exxon - West Ave", lat: 32.7600, lng: -96.7800, prices: { regular: 2.45, midgrade: 2.75, premium: 3.05, diesel: 2.95 } }
+        { id: "1", name: "EagleStores Parma", lat: 41.38, lng: -81.73 },
+        { id: "2", name: "Marathon Killbuck", lat: 40.50, lng: -81.98 },
+        { id: "3", name: "Marathon Loudonville", lat: 40.63, lng: -82.23 },
+        { id: "4", name: "Acro Akron", lat: 41.08, lng: -81.51 }
       ],
-      history: []
+      priceHistory: {} // NEW STRUCTURE ONLY
     };
     fs.writeFileSync(DB_FILE, JSON.stringify(initialData, null, 2));
-    return initialData;
+    cachedDB = initialData;
+    return cachedDB;
   }
-  return JSON.parse(fs.readFileSync(DB_FILE));
+
+  try {
+    const rawData = fs.readFileSync(DB_FILE, 'utf-8');
+    const data = JSON.parse(rawData);
+    
+    // CLEANUP OLD DATA
+    if (data.history) {
+      console.log('🧹 Removing old history array...');
+      delete data.history;
+    }
+    if (data.stations) {
+      data.stations.forEach((station) => {  // ✅ REMOVED :any TYPE ANNOTATION
+        delete station.prices; // Remove old prices from stations
+      });
+    }
+    
+    if (!data.priceHistory) data.priceHistory = {};
+    cachedDB = data;
+    return cachedDB;
+  } catch (err) {
+    console.error('Database corrupted, recreating...', err);
+    // Recreate clean file
+    const initialData = {
+      stations: [
+        { id: "1", name: "EagleStores Parma", lat: 41.38, lng: -81.73 },
+        { id: "2", name: "Marathon Killbuck", lat: 40.50, lng: -81.98 },
+        { id: "3", name: "Marathon Loudonville", lat: 40.63, lng: -82.23 },
+        { id: "4", name: "Acro Akron", lat: 41.08, lng: -81.51 }
+      ],
+      priceHistory: {}
+    };
+    fs.writeFileSync(DB_FILE, JSON.stringify(initialData, null, 2));
+    cachedDB = initialData;
+    return cachedDB;
+  }
 }
 
 function saveDatabase(data) {
-  fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2));
+  cachedDB = data;
+  // SYNCHRONOUS WRITE for safety during development
+  try {
+    fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2));
+  } catch (err) {
+    console.error('Failed to save database:', err);
+  }
 }
 
 // --- ENDPOINTS ---
 
-// 1. Get All Data
 app.get('/api/stations', (req, res) => {
-  const db = getDatabase();
-  res.json(db.stations);
+  try {
+    const db = getDatabase();
+    res.json(db.stations);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to load stations" });
+  }
 });
 
-// 2. Get History
-app.get('/api/history', (req, res) => {
-  const db = getDatabase();
-  res.json(db.history.reverse());
-});
-
-// 3. Update Price
 app.post('/api/update-price', (req, res) => {
-  const { stationId, prices, user } = req.body;
-  const db = getDatabase();
-  const index = db.stations.findIndex(s => s.id == stationId);
+  const { stationId, fuelType, price, updatedBy } = req.body;
 
-  if (index === -1) return res.status(404).json({ error: "Station not found" });
-
-  // Update
-  db.stations[index].prices = { ...db.stations[index].prices, ...prices };
-
-  // Log
-  const log = {
-    id: Date.now(),
-    timestamp: new Date().toISOString(),
-    stationName: db.stations[index].name,
-    updatedBy: user || "Staff",
-    type: 'PRICE_UPDATE',
-    details: prices
-  };
-  db.history.push(log);
-  
-  saveDatabase(db);
-  // Simulate network delay for realism
-  setTimeout(() => res.json({ success: true, log }), 500);
-});
-
-// 4. Register Station
-app.post('/api/stations', (req, res) => {
-  const { name, lat, lng } = req.body;
-  if (!name || !lat || !lng) return res.status(400).json({ error: "Missing fields" });
+  if (!stationId || !price || !fuelType) {
+    return res.status(400).json({ error: "Missing fields" });
+  }
 
   const db = getDatabase();
-  const newStation = {
-    id: Date.now(),
-    name,
-    lat: parseFloat(lat),
-    lng: parseFloat(lng),
-    prices: { regular: 0, midgrade: 0, premium: 0, diesel: 0 }
-  };
+  const station = db.stations.find(s => s.id == stationId);
 
-  db.stations.push(newStation);
+  if (!station) return res.status(404).json({ error: "Station not found" });
 
-  // Log
-  db.history.push({
-    id: Date.now(),
-    timestamp: new Date().toISOString(),
-    stationName: name,
-    updatedBy: "System Admin",
-    type: 'REGISTRATION',
-    details: { lat, lng }
-  });
+  const now = new Date();
+  const dateKey = now.toISOString().split('T')[0];
+  const timeKey = now.toISOString();
+
+  // Initialize date structure
+  if (!db.priceHistory[dateKey]) {
+    db.priceHistory[dateKey] = {};
+  }
+  if (!db.priceHistory[dateKey][stationId]) {
+    db.priceHistory[dateKey][stationId] = [];
+  }
+
+  // Get or create today's entry
+  let todayEntry = db.priceHistory[dateKey][stationId][0];
+  if (!todayEntry) {
+    todayEntry = {
+      time: timeKey,
+      updatedBy: updatedBy || "Staff",
+      prices: { regular: null, midgrade: null, premium: null, diesel: null }
+    };
+    db.priceHistory[dateKey][stationId].unshift(todayEntry);
+  }
+
+  // Update specific fuel type
+  todayEntry.prices[fuelType] = parseFloat(price);
+  todayEntry.time = timeKey;
+  todayEntry.updatedBy = updatedBy || "Staff";
 
   saveDatabase(db);
-  setTimeout(() => res.json({ success: true, station: newStation }), 500);
+  res.json({ success: true, dateKey, stationId });
 });
 
-const PORT = 5000;
+app.get('/api/admin/price-history', (req, res) => {
+  try {
+    const db = getDatabase();
+    const dates = Object.keys(db.priceHistory).sort().reverse().slice(0, 30);
+    const history = {};
+    dates.forEach(date => {
+      history[date] = db.priceHistory[date];
+    });
+    res.json({
+      stations: db.stations,
+      history: history
+    });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to load price history" });
+  }
+});
+
+app.get('/api/admin/chart-data/:stationId', (req, res) => {
+  try {
+    const { stationId } = req.params;
+    const db = getDatabase();
+    const station = db.stations.find(s => s.id === stationId);
+
+    if (!station) return res.status(404).json({ error: "Station not found" });
+
+    const dates = Object.keys(db.priceHistory).sort().reverse().slice(0, 30);
+    const chartData = dates.map(date => {
+      const stationData = db.priceHistory[date]?.[stationId]?.[0];
+      return {
+        date,
+        regular: stationData?.prices?.regular || null,
+        midgrade: stationData?.prices?.midgrade || null,
+        premium: stationData?.prices?.premium || null,
+        diesel: stationData?.prices?.diesel || null
+      };
+    }).reverse();
+
+    res.json({
+      station: station.name,
+      data: chartData
+    });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to load chart data" });
+  }
+});
+
+const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`🚀 Backend running on port ${PORT}`));
