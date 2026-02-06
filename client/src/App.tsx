@@ -9,7 +9,10 @@ import {
   AlertCircle,
   Calendar,
   BarChart3,
-  Table as TableIcon
+  Table as TableIcon,
+  Fuel,
+  User,
+  Clock
 } from 'lucide-react';
 
 // --- CONFIG ---
@@ -54,18 +57,16 @@ interface ChartDataPoint {
 // --- TOAST ---
 const Toast = ({ msg, type }: { msg: string; type: 'success' | 'error' }) => (
   <div
-    className={`fixed top-6 right-6 px-4 py-3 rounded-lg shadow-xl flex items-center gap-3 z-50 ${
+    className={`fixed top-6 right-6 left-6 md:left-auto md:w-auto px-4 py-3 rounded-lg shadow-xl flex items-center gap-3 z-50 animate-in slide-in-from-top-2 ${
       type === 'success'
         ? 'bg-emerald-600 text-white'
         : 'bg-red-500 text-white'
     }`}
   >
     {type === 'success' ? <CheckCircle2 size={20} /> : <AlertCircle size={20} />}
-    <span className="font-bold">{msg}</span>
+    <span className="font-bold text-sm md:text-base">{msg}</span>
   </div>
 );
-
-// ================= STAFF PAGE =================
 
 // ================= STAFF PAGE =================
 function StaffPage() {
@@ -103,7 +104,6 @@ function StaffPage() {
     setTimeout(() => setNotification(null), 3000);
   };
 
-  // Blocks 'e', 'E', '+', and '-' in price fields
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (['e', 'E', '+', '-'].includes(e.key)) {
       e.preventDefault();
@@ -116,14 +116,13 @@ function StaffPage() {
     if (!stationId) return showNotify('Please select a store first', 'error');
     if (!staffName.trim()) return showNotify('Staff name is required', 'error');
 
-    // VALIDATION: Ensure ALL prices are entered and greater than 0
     const priceKeys = Object.keys(prices) as (keyof typeof prices)[];
     const allPricesEntered = priceKeys.every(key => 
       prices[key] !== '' && Number(prices[key]) > 0
     );
 
     if (!allPricesEntered) {
-      return showNotify('Please enter all four fuel prices before submitting', 'error');
+      return showNotify('Please enter all four fuel prices', 'error');
     }
 
     setLoading(true);
@@ -141,7 +140,6 @@ function StaffPage() {
       );
 
       showNotify('All Prices Updated Successfully!', 'success');
-      // Reset only prices, NOT the staff name
       setPrices({ regular: '', midgrade: '', premium: '', diesel: '' });
     } catch (err) {
       console.error(err);
@@ -155,14 +153,14 @@ function StaffPage() {
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
       {notification && <Toast {...notification} />}
 
-      <div className="max-w-md w-full bg-white p-8 rounded-2xl shadow-sm border border-slate-200">
-        <h1 className="text-3xl font-bold mb-8 text-center text-slate-800">Set Fuel Prices</h1>
+      <div className="max-w-md w-full bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200">
+        <h1 className="text-2xl md:text-3xl font-bold mb-6 md:mb-8 text-center text-slate-800">Set Fuel Prices</h1>
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Select Location</label>
             <select
-              className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+              className="w-full p-3 md:p-4 border border-slate-300 rounded-xl bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all text-base"
               value={stationId}
               onChange={(e) => setStationId(e.target.value)}
             >
@@ -176,7 +174,7 @@ function StaffPage() {
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Your Name</label>
             <input
-              className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+              className="w-full p-3 md:p-4 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-base"
               placeholder="Enter your name"
               value={staffName}
               onChange={(e) => setStaffName(e.target.value)}
@@ -188,13 +186,14 @@ function StaffPage() {
               <div key={type}>
                 <label className="block text-sm font-medium text-slate-700 mb-1 capitalize">{type} Price</label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-bold">$</span>
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-bold">$</span>
                   <input
                     type="number"
                     step="0.01"
+                    inputMode="decimal"
                     onKeyDown={handleKeyDown}
                     placeholder={`0.00`}
-                    className="w-full p-3 pl-7 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                    className="w-full p-3 md:p-4 pl-8 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-base"
                     value={prices[type]}
                     onChange={(e) =>
                       setPrices((p) => ({ ...p, [type]: e.target.value }))
@@ -207,21 +206,18 @@ function StaffPage() {
 
           <button
             disabled={loading}
-            className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold flex justify-center gap-2 items-center hover:bg-blue-700 transition-colors disabled:opacity-50 mt-4 shadow-lg shadow-blue-200"
+            className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold flex justify-center gap-2 items-center hover:bg-blue-700 transition-colors disabled:opacity-50 mt-4 shadow-lg shadow-blue-200 active:scale-[0.98]"
           >
             {loading ? <RefreshCw size={20} className="animate-spin" /> : <Save size={20} />}
-            {loading ? 'Updating Database...' : 'Submit All Prices'}
+            {loading ? 'Updating...' : 'Submit Prices'}
           </button>
         </form>
-
-     
       </div>
     </div>
   );
 }
 
-// ... (Rest of the AdminPage and App code remains the same)
-// ================= ADMIN PAGE WITH TWO VIEWS =================
+// ================= ADMIN PAGE =================
 function AdminPage() {
   const [adminData, setAdminData] = useState<AdminData | null>(null);
   const [view, setView] = useState<'table' | 'chart'>('table');
@@ -229,6 +225,7 @@ function AdminPage() {
   const [selectedStation, setSelectedStation] = useState<string>('');
   const [chartData, setChartData] = useState<ChartDataPoint[] | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const lastFetchedStation = React.useRef<string | null>(null);
 
   const fetchAdminData = useCallback(async () => {
     setRefreshing(true);
@@ -236,7 +233,6 @@ function AdminPage() {
       const res = await axios.get(`${API_URL}/api/admin/price-history`);
       setAdminData(res.data);
       
-      // Set default date to most recent
       const dates = Object.keys(res.data.history).sort().reverse();
       if (dates.length > 0 && !selectedDate) {
         setSelectedDate(dates[0]);
@@ -258,37 +254,17 @@ function AdminPage() {
 
   useEffect(() => {
     let active = true;
-
-    (async () => {
-      if (active) await fetchAdminData();
-    })();
-
-    const interval = setInterval(() => {
-      fetchAdminData();
-    }, 10000); // Refresh every 10 seconds
-
-    return () => {
-      active = false;
-      clearInterval(interval);
-    };
+    (async () => { if (active) await fetchAdminData(); })();
+    const interval = setInterval(() => { fetchAdminData(); }, 10000);
+    return () => { active = false; clearInterval(interval); };
   }, [fetchAdminData]);
 
-const lastFetchedStation = React.useRef<string | null>(null);
-
-useEffect(() => {
-  if (
-    view === 'chart' &&
-    selectedStation &&
-    lastFetchedStation.current !== selectedStation
-  ) {
-    lastFetchedStation.current = selectedStation;
-    setTimeout(() => {
-      fetchChartData(selectedStation);
-    }, 0);
-  }
-}, [view, selectedStation, fetchChartData]);
-
-
+  useEffect(() => {
+    if (view === 'chart' && selectedStation && lastFetchedStation.current !== selectedStation) {
+      lastFetchedStation.current = selectedStation;
+      setTimeout(() => { fetchChartData(selectedStation); }, 0);
+    }
+  }, [view, selectedStation, fetchChartData]);
 
   if (!adminData) {
     return (
@@ -302,24 +278,25 @@ useEffect(() => {
   const currentDateData = selectedDate ? adminData.history[selectedDate] : null;
 
   return (
-    <div className="min-h-screen bg-slate-900 p-8">
+    <div className="min-h-screen bg-slate-900 p-4 md:p-8">
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-6">
+        
+        {/* --- Header --- */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
           <h1 className="text-2xl font-bold text-white flex items-center gap-3">
             <Database className="text-emerald-400" size={24} />
             Admin Dashboard
           </h1>
-          <div className="flex gap-4">
+          <div className="flex w-full md:w-auto gap-3">
             <Link
               to="/"
-              className="px-4 py-2 bg-slate-800 text-slate-300 rounded-lg hover:bg-slate-700 transition-all"
+              className="flex-1 md:flex-none text-center px-4 py-2.5 bg-slate-800 text-slate-300 rounded-lg hover:bg-slate-700 transition-all font-medium border border-slate-700"
             >
               Back to Form
             </Link>
             <button
               onClick={fetchAdminData}
-              className={`p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-500 transition-all ${
+              className={`px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-500 transition-all shadow-lg shadow-blue-900/50 ${
                 refreshing ? 'animate-spin' : ''
               }`}
             >
@@ -328,49 +305,49 @@ useEffect(() => {
           </div>
         </div>
 
-        {/* View Toggle */}
-        <div className="flex gap-2 mb-6">
+        {/* --- View Toggle --- */}
+        <div className="flex bg-slate-800 p-1 rounded-xl mb-6 w-full md:w-fit border border-slate-700">
           <button
             onClick={() => setView('table')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
+            className={`flex-1 md:flex-none flex justify-center items-center gap-2 px-6 py-2.5 rounded-lg transition-all text-sm font-medium ${
               view === 'table'
-                ? 'bg-emerald-600 text-white'
-                : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+                ? 'bg-slate-700 text-white shadow-sm'
+                : 'text-slate-400 hover:text-white'
             }`}
           >
             <TableIcon size={18} />
-            Table View
+            Daily Overview
           </button>
           <button
             onClick={() => setView('chart')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
+            className={`flex-1 md:flex-none flex justify-center items-center gap-2 px-6 py-2.5 rounded-lg transition-all text-sm font-medium ${
               view === 'chart'
-                ? 'bg-emerald-600 text-white'
-                : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+                ? 'bg-slate-700 text-white shadow-sm'
+                : 'text-slate-400 hover:text-white'
             }`}
           >
             <BarChart3 size={18} />
-            Chart View
+            Price History
           </button>
         </div>
 
-        {/* TABLE VIEW */}
+        {/* --- TABLE VIEW --- */}
         {view === 'table' && (
           <div className="space-y-6">
             {/* Date Selector */}
-            <div className="flex items-center gap-3 bg-slate-800 p-4 rounded-lg">
-              <Calendar className="text-slate-400" size={20} />
+            <div className="flex items-center gap-3 bg-slate-800 p-3 md:p-4 rounded-xl border border-slate-700">
+              <Calendar className="text-slate-400 shrink-0" size={20} />
               <select
                 value={selectedDate}
                 onChange={(e) => setSelectedDate(e.target.value)}
-                className="flex-1 bg-slate-900 text-white p-2 rounded border border-slate-700"
+                className="flex-1 bg-transparent text-white p-1 md:p-2 outline-none text-base md:text-lg font-medium cursor-pointer"
               >
                 {dates.map((date) => (
-                  <option key={date} value={date}>
+                  <option key={date} value={date} className="bg-slate-800">
                     {new Date(date).toLocaleDateString('en-US', {
-                      weekday: 'long',
+                      weekday: 'short',
                       year: 'numeric',
-                      month: 'long',
+                      month: 'short',
                       day: 'numeric'
                     })}
                   </option>
@@ -378,101 +355,145 @@ useEffect(() => {
               </select>
             </div>
 
-            {/* Table */}
+            {/* Content */}
             {currentDateData && (
-              <div className="bg-slate-800 rounded-2xl shadow-xl overflow-hidden border border-slate-700">
-                <table className="w-full text-left border-collapse">
-                  <thead className="bg-slate-950 text-slate-400 uppercase text-xs font-bold tracking-wider">
-                    <tr>
-                      <th className="p-5">Station</th>
-                      <th className="p-5">Last Updated</th>
-                      <th className="p-5">Updated By</th>
-                      <th className="p-5 text-right">Regular</th>
-                      <th className="p-5 text-right">Midgrade</th>
-                      <th className="p-5 text-right">Premium</th>
-                      <th className="p-5 text-right">Diesel</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-700">
-                    {adminData.stations.map((station) => {
-                      const stationData = currentDateData[station.id]?.[0];
-                      return (
-                        <tr key={station.id} className="hover:bg-slate-700/50 transition-colors text-slate-300">
-                          <td className="p-5 font-bold text-white">{station.name}</td>
-                          <td className="p-5 font-mono text-sm text-slate-400">
-                            {stationData
-                              ? new Date(stationData.time).toLocaleTimeString('en-US', {
-                                  hour: '2-digit',
-                                  minute: '2-digit'
-                                })
-                              : 'No data'}
-                          </td>
-                          <td className="p-5">
-                            <span className="bg-slate-900 px-2 py-1 rounded text-xs border border-slate-600">
-                              {stationData?.updatedBy || 'N/A'}
-                            </span>
-                          </td>
-                          <td className="p-5 text-right font-mono font-bold text-emerald-400">
-                            {stationData?.prices.regular ? `$${stationData.prices.regular.toFixed(2)}` : '-'}
-                          </td>
-                          <td className="p-5 text-right font-mono font-bold text-emerald-400">
-                            {stationData?.prices.midgrade ? `$${stationData.prices.midgrade.toFixed(2)}` : '-'}
-                          </td>
-                          <td className="p-5 text-right font-mono font-bold text-emerald-400">
-                            {stationData?.prices.premium ? `$${stationData.prices.premium.toFixed(2)}` : '-'}
-                          </td>
-                          <td className="p-5 text-right font-mono font-bold text-emerald-400">
-                            {stationData?.prices.diesel ? `$${stationData.prices.diesel.toFixed(2)}` : '-'}
-                          </td>
+              <>
+                {/* Desktop Table View (Hidden on Mobile) */}
+                <div className="hidden md:block bg-slate-800 rounded-2xl shadow-xl overflow-hidden border border-slate-700">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead className="bg-slate-950 text-slate-400 uppercase text-xs font-bold tracking-wider">
+                        <tr>
+                          <th className="p-5">Station</th>
+                          <th className="p-5">Last Updated</th>
+                          <th className="p-5">Updated By</th>
+                          <th className="p-5 text-right">Regular</th>
+                          <th className="p-5 text-right">Midgrade</th>
+                          <th className="p-5 text-right">Premium</th>
+                          <th className="p-5 text-right">Diesel</th>
                         </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                      </thead>
+                      <tbody className="divide-y divide-slate-700">
+                        {adminData.stations.map((station) => {
+                          const stationData = currentDateData[station.id]?.[0];
+                          return (
+                            <tr key={station.id} className="hover:bg-slate-700/50 transition-colors text-slate-300">
+                              <td className="p-5 font-bold text-white">{station.name}</td>
+                              <td className="p-5 font-mono text-sm text-slate-400">
+                                {stationData ? new Date(stationData.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : 'No data'}
+                              </td>
+                              <td className="p-5">
+                                <span className="bg-slate-900 px-2 py-1 rounded text-xs border border-slate-600">
+                                  {stationData?.updatedBy || 'N/A'}
+                                </span>
+                              </td>
+                              {['regular', 'midgrade', 'premium', 'diesel'].map(fuel => (
+                                <td key={fuel} className="p-5 text-right font-mono font-bold text-emerald-400">
+                                  {stationData?.prices[fuel as keyof typeof stationData.prices] 
+                                    ? `$${stationData?.prices[fuel as keyof typeof stationData.prices]?.toFixed(2)}` 
+                                    : '-'}
+                                </td>
+                              ))}
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Mobile Card View (Hidden on Desktop) */}
+                <div className="md:hidden space-y-4">
+                  {adminData.stations.map((station) => {
+                    const stationData = currentDateData[station.id]?.[0];
+                    return (
+                      <div key={station.id} className="bg-slate-800 rounded-xl p-5 border border-slate-700 shadow-sm">
+                        <div className="flex justify-between items-start mb-4 pb-4 border-b border-slate-700">
+                          <div>
+                            <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                              <Fuel size={16} className="text-blue-500"/> {station.name}
+                            </h3>
+                          </div>
+                          <div className="text-right">
+                             {stationData ? (
+                                <div className="flex items-center gap-1 text-xs text-slate-400 bg-slate-900 px-2 py-1 rounded-full">
+                                  <Clock size={12}/>
+                                  {new Date(stationData.time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                </div>
+                             ) : (
+                               <span className="text-xs text-red-400 bg-red-900/20 px-2 py-1 rounded">No Data</span>
+                             )}
+                          </div>
+                        </div>
+
+                        {stationData ? (
+                          <>
+                            <div className="grid grid-cols-2 gap-3 mb-4">
+                               {['regular', 'midgrade', 'premium', 'diesel'].map(fuel => (
+                                 <div key={fuel} className="bg-slate-900/50 p-3 rounded-lg text-center border border-slate-700/50">
+                                    <div className="text-[10px] uppercase text-slate-500 font-bold tracking-wider mb-1">{fuel}</div>
+                                    <div className="text-lg font-mono font-bold text-emerald-400">
+                                       ${stationData.prices[fuel as keyof typeof stationData.prices]?.toFixed(2)}
+                                    </div>
+                                 </div>
+                               ))}
+                            </div>
+                            <div className="flex items-center gap-2 text-sm text-slate-400 bg-slate-900 p-2 rounded-lg">
+                              <User size={14} />
+                              Updated by: <span className="text-white font-medium">{stationData.updatedBy}</span>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="text-center text-slate-500 py-2 italic text-sm">
+                            No prices submitted for this date.
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
             )}
           </div>
         )}
 
-        {/* CHART VIEW */}
+        {/* --- CHART VIEW --- */}
         {view === 'chart' && (
           <div className="space-y-6">
-            {/* Station Selector */}
-            <div className="flex items-center gap-3 bg-slate-800 p-4 rounded-lg">
-              <Database className="text-slate-400" size={20} />
+            <div className="flex items-center gap-3 bg-slate-800 p-3 md:p-4 rounded-xl border border-slate-700">
+              <Database className="text-slate-400 shrink-0" size={20} />
               <select
                 value={selectedStation}
                 onChange={(e) => setSelectedStation(e.target.value)}
-                className="flex-1 bg-slate-900 text-white p-2 rounded border border-slate-700"
+                className="flex-1 bg-transparent text-white p-1 md:p-2 outline-none text-base md:text-lg font-medium cursor-pointer"
               >
-                <option value="">Select a station</option>
+                <option value="" className="bg-slate-800">Select a station</option>
                 {adminData.stations.map((station) => (
-                  <option key={station.id} value={station.id}>
+                  <option key={station.id} value={station.id} className="bg-slate-800">
                     {station.name}
                   </option>
                 ))}
               </select>
             </div>
 
-            {/* Chart Display */}
             {chartData && selectedStation && (
-              <div className="bg-slate-800 rounded-2xl p-8 border border-slate-700">
-                <h2 className="text-xl font-bold text-white mb-6">
-                  Price History - {adminData.stations.find(s => s.id === selectedStation)?.name}
+              <div className="bg-slate-800 rounded-2xl p-4 md:p-8 border border-slate-700">
+                <h2 className="text-lg md:text-xl font-bold text-white mb-6">
+                  History: <span className="text-blue-400">{adminData.stations.find(s => s.id === selectedStation)?.name}</span>
                 </h2>
                 <div className="space-y-3">
                   {chartData.reverse().map((point, idx) => (
-                    <div key={idx} className="flex items-center gap-4 bg-slate-900/50 p-4 rounded-lg">
-                      <div className="w-24 text-slate-400 font-mono text-sm">
-                        {new Date(point.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    <div key={idx} className="flex flex-col md:flex-row md:items-center gap-3 md:gap-4 bg-slate-900/50 p-4 rounded-xl border border-slate-700/30">
+                      <div className="text-slate-400 font-mono text-sm border-b md:border-b-0 md:border-r border-slate-700 pb-2 md:pb-0 md:pr-4 md:w-32">
+                        {new Date(point.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                       </div>
-                      <div className="flex-1 grid grid-cols-4 gap-4">
+                      <div className="flex-1 grid grid-cols-2 md:grid-cols-4 gap-4">
                         {['regular', 'midgrade', 'premium', 'diesel'].map((type) => {
                           const price = point[type as keyof Omit<ChartDataPoint, 'date'>];
                           return (
-                            <div key={type} className="text-center">
-                              <div className="text-xs text-slate-500 uppercase mb-1">{type}</div>
-                              <div className="text-lg font-bold text-emerald-400">
+                            <div key={type} className="text-center md:text-left bg-slate-800 md:bg-transparent p-2 md:p-0 rounded-lg">
+                              <div className="text-[10px] md:text-xs text-slate-500 uppercase mb-1">{type}</div>
+                              <div className="text-base md:text-lg font-bold text-emerald-400 font-mono">
                                 {price ? `$${price.toFixed(2)}` : '-'}
                               </div>
                             </div>
@@ -486,8 +507,9 @@ useEffect(() => {
             )}
 
             {!selectedStation && (
-              <div className="bg-slate-800 rounded-2xl p-12 text-center text-slate-400 border border-slate-700">
-                Select a station to view price history chart
+              <div className="bg-slate-800 rounded-2xl p-12 text-center text-slate-400 border border-slate-700 border-dashed">
+                <BarChart3 size={48} className="mx-auto mb-4 opacity-20" />
+                Select a station above to view price history
               </div>
             )}
           </div>
