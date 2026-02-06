@@ -9,8 +9,11 @@ app.use(express.json());
 // 1. Disable buffering globally
 mongoose.set("bufferCommands", false);
 
+// ============================================================
+// 📍 STATION CONFIGURATION (Verified Coordinates)
+// ============================================================
 const STATIONS = [
-  // ID 1: EagleStores (Keeping as placeholder, or update if needed)
+  // ID 1: EagleStores (Placeholder / Admin Test Store)
   { 
     id: "1", 
     name: "EagleStores Parma", 
@@ -18,8 +21,7 @@ const STATIONS = [
     lng: -81.73, 
     address: "5555 Broadview Rd, Parma, OH 44134" 
   },
-
-  // ID 2: Killbuck Marathon (UPDATED)
+  // ID 2: Killbuck Marathon
   { 
     id: "2", 
     name: "Killbuck Marathon", 
@@ -27,8 +29,7 @@ const STATIONS = [
     lng: -81.985704, 
     address: "205 W Front St, Killbuck, OH 44637" 
   },
-
-  // ID 3: Loudonville Marathon (UPDATED)
+  // ID 3: Loudonville Marathon
   { 
     id: "3", 
     name: "Loudonville Marathon", 
@@ -36,8 +37,7 @@ const STATIONS = [
     lng: -82.230366, 
     address: "236 N Union St, Loudonville, OH 44842" 
   },
-
-  // ID 4: ARCO Akron (UPDATED from "Acro Akron")
+  // ID 4: ARCO Akron
   { 
     id: "4", 
     name: "ARCO East Ave", 
@@ -47,7 +47,9 @@ const STATIONS = [
   },
 ];
 
-// 2. Schema Definition
+// ============================================================
+// 🗄️ DATABASE SCHEMA
+// ============================================================
 const PriceHistorySchema = new mongoose.Schema(
   {
     stationId: { type: String, required: true },
@@ -61,20 +63,21 @@ const PriceHistorySchema = new mongoose.Schema(
   },
   {
     timestamps: true,
-    bufferCommands: false, // Important: disable buffering at schema level
-    autoCreate: false, // CRITICAL FIX: prevents 'createCollection' error on startup
+    bufferCommands: false,
+    autoCreate: false, 
   }
 );
 
-// Define model
 const PriceHistory = mongoose.model("PriceHistory", PriceHistorySchema);
 
-// Helper to check DB state
 function isDbReady() {
   return mongoose.connection.readyState === 1;
 }
 
-// 3. API Routes
+// ============================================================
+// 🌐 API ROUTES
+// ============================================================
+
 app.get("/", (req, res) => {
   res.json({
     status: "Fuelify API",
@@ -83,8 +86,47 @@ app.get("/", (req, res) => {
   });
 });
 
-app.get("/api/stations", (req, res) => res.json(STATIONS));
+// ✅ UPDATED: Returns Stations WITH Latest Prices
+app.get("/api/stations", async (req, res) => {
+  try {
+    // If DB is down, return basic info with zero prices
+    if (!isDbReady()) {
+      return res.json(STATIONS.map(s => ({
+        ...s,
+        prices: { regular: 0, midgrade: 0, premium: 0, diesel: 0 },
+        lastUpdated: "Offline"
+      })));
+    }
 
+    // Fetch latest prices for all stations in parallel
+    const stationsWithPrices = await Promise.all(
+      STATIONS.map(async (station) => {
+        // Find the absolute latest price entry (descending sort)
+        const latestPrice = await PriceHistory.findOne({ stationId: station.id })
+          .sort({ date: -1, time: -1 }) 
+          .lean();
+
+        return {
+          ...station,
+          prices: {
+            regular: latestPrice?.regular || 0,
+            midgrade: latestPrice?.midgrade || 0,
+            premium: latestPrice?.premium || 0,
+            diesel: latestPrice?.diesel || 0,
+          },
+          lastUpdated: latestPrice?.time || "Never"
+        };
+      })
+    );
+
+    res.json(stationsWithPrices);
+  } catch (err) {
+    console.error("Station fetch error:", err);
+    res.status(500).json({ error: "Failed to fetch stations" });
+  }
+});
+
+// Update Price (Admin Panel)
 app.post("/api/update-price", async (req, res) => {
   if (!isDbReady()) return res.status(503).json({ error: "DB not connected" });
 
@@ -102,7 +144,7 @@ app.post("/api/update-price", async (req, res) => {
       },
     };
 
-    // Use updateOne with upsert to avoid some findOneAndUpdate overhead
+    // Upsert: Update if exists for today, else create new
     await PriceHistory.updateOne(filter, update, { upsert: true });
 
     res.json({ success: true, dateKey, stationId: String(stationId) });
@@ -112,6 +154,7 @@ app.post("/api/update-price", async (req, res) => {
   }
 });
 
+// Admin Dashboard Data
 app.get("/api/admin/price-history", async (req, res) => {
   if (!isDbReady()) return res.status(503).json({ error: "DB not connected" });
   try {
@@ -142,6 +185,7 @@ app.get("/api/admin/price-history", async (req, res) => {
   }
 });
 
+// Chart Data Endpoint
 app.get("/api/admin/chart-data/:stationId", async (req, res) => {
   if (!isDbReady()) return res.status(503).json({ error: "DB not connected" });
   try {
@@ -168,7 +212,9 @@ app.get("/api/admin/chart-data/:stationId", async (req, res) => {
   }
 });
 
-// 4. Server Startup
+// ============================================================
+// 🚀 SERVER STARTUP
+// ============================================================
 async function startServer() {
   const MONGODB_URI = process.env.MONGODB_URI;
   if (!MONGODB_URI) {
@@ -177,20 +223,12 @@ async function startServer() {
   }
 
   try {
-    // Connect first
     await mongoose.connect(MONGODB_URI, {
       serverSelectionTimeoutMS: 5000,
       family: 4,
     });
     console.log("🟢 MongoDB Connected");
-
-    // Manually create collection (since autoCreate is false) to ensure it exists
-    if (mongoose.connection.readyState === 1) {
-       // Safe check: usually updateOne/find will create it, 
-       // but createCollection ensures indexes if you had them.
-       // For now, we just skip explicit creation to avoid the specific bug.
-       console.log("🟢 DB Ready state: " + mongoose.connection.readyState);
-    }
+    console.log("🟢 DB Ready state: " + mongoose.connection.readyState);
 
     const PORT = process.env.PORT || 5000;
     app.listen(PORT, () => console.log(`🚀 Server running on ${PORT}`));
