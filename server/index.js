@@ -10,10 +10,41 @@ app.use(express.json());
 mongoose.set("bufferCommands", false);
 
 const STATIONS = [
-  { id: "1", name: "EagleStores Parma", lat: 41.38, lng: -81.73 },
-  { id: "2", name: "Marathon Killbuck", lat: 40.5, lng: -81.98 },
-  { id: "3", name: "Marathon Loudonville", lat: 40.63, lng: -82.23 },
-  { id: "4", name: "Acro Akron", lat: 41.08, lng: -81.51 },
+  // ID 1: EagleStores (Keeping as placeholder, or update if needed)
+  { 
+    id: "1", 
+    name: "EagleStores Parma", 
+    lat: 41.38, 
+    lng: -81.73, 
+    address: "5555 Broadview Rd, Parma, OH 44134" 
+  },
+
+  // ID 2: Killbuck Marathon (UPDATED)
+  { 
+    id: "2", 
+    name: "Killbuck Marathon", 
+    lat: 40.494994, 
+    lng: -81.985704, 
+    address: "205 W Front St, Killbuck, OH 44637" 
+  },
+
+  // ID 3: Loudonville Marathon (UPDATED)
+  { 
+    id: "3", 
+    name: "Loudonville Marathon", 
+    lat: 40.637842, 
+    lng: -82.230366, 
+    address: "236 N Union St, Loudonville, OH 44842" 
+  },
+
+  // ID 4: ARCO Akron (UPDATED from "Acro Akron")
+  { 
+    id: "4", 
+    name: "ARCO East Ave", 
+    lat: 41.043609, 
+    lng: -81.572290, 
+    address: "2215 East Ave, Akron, OH 44314" 
+  },
 ];
 
 // 2. Schema Definition
