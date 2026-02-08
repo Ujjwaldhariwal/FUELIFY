@@ -45,6 +45,14 @@ const STATIONS = [
     lng: -81.572290, 
     address: "2215 East Ave, Akron, OH 44314" 
   },
+   {
+    id: "5",
+    name: "Eagle Store Winchester",
+    brand: "shell", // 3480 Gender Rd is a Shell station
+    lat: 39.911230,
+    lng: -82.823660,
+    address: "3480 Gender Rd, Canal Winchester, OH 43110"
+  }
 ];
 
 // ============================================================
